@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROAD_HALF, type Track } from './track';
 import type { CityOpts, TrackDef } from './tracks';
+import { buildingKit, loadBuildingKit, type BuildingKit, type Variant } from './buildings';
 
 const skyVert = /* glsl */ `
   varying vec3 vDir;
@@ -213,34 +214,27 @@ function windowCanvas(rows: number, cols: number, rand: () => number) {
   return c;
 }
 
-/** Procedural city around a track. Same seed + options always give the same city. */
-export function buildCity(track: Track, opts: CityOpts) {
-  const group = new THREE.Group();
+interface Plot { x: number; z: number; w: number; d: number; h: number; rot: number; ci: number; top: boolean }
+
+const CITY_PALETTE = [0xff4fd8, 0x4ff3ff, 0xb56bff, 0xffb347, 0xff6f91, 0x7d8bff].map((c) => new THREE.Color(c));
+const CITY_CLASSES = (opts: CityOpts) => [
+  { count: opts.counts[0], h: [14, 40], w: [10, 24], rows: 6 },
+  { count: opts.counts[1], h: [45, 95], w: [14, 28], rows: 14 },
+  { count: opts.counts[2], h: [110, 210], w: [18, 34], rows: 28 },
+];
+
+/** Where every building stands (same seed + options always give the same layout). */
+function layoutCity(track: Track, opts: CityOpts) {
   const rand = rng(opts.seed);
   const b = track.bounds;
   const pad = opts.pad;
-  const palette = [0xff4fd8, 0x4ff3ff, 0xb56bff, 0xffb347, 0xff6f91, 0x7d8bff].map((c) => new THREE.Color(c));
-  const classes = [
-    { count: opts.counts[0], h: [14, 40], w: [10, 24], rows: 6 },
-    { count: opts.counts[1], h: [45, 95], w: [14, 28], rows: 14 },
-    { count: opts.counts[2], h: [110, 210], w: [18, 34], rows: 28 },
-  ];
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const sc = new THREE.Vector3();
-  const pos = new THREE.Vector3();
-  const tops: { x: number; z: number; y: number; w: number; d: number; c: THREE.Color }[] = [];
-
-  for (const cl of classes) {
-    const tex = new THREE.CanvasTexture(windowCanvas(cl.rows, 6, rand));
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.magFilter = THREE.NearestFilter;
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    geo.translate(0, 0.5, 0);
-    const mat = new THREE.MeshBasicMaterial({ map: tex });
-    const mesh = new THREE.InstancedMesh(geo, mat, cl.count);
-    let n = 0, guard = 0;
-    while (n < cl.count && guard++ < cl.count * 40) {
+  const classes = CITY_CLASSES(opts);
+  return classes.map((cl) => {
+    // consumes the same random numbers the window texture always did, so layouts stay unchanged
+    const canvas = windowCanvas(cl.rows, 6, rand);
+    const plots: Plot[] = [];
+    let guard = 0;
+    while (plots.length < cl.count && guard++ < cl.count * 40) {
       const x = b.minX - pad + rand() * (b.maxX - b.minX + pad * 2);
       const z = b.minZ - pad + rand() * (b.maxZ - b.minZ + pad * 2);
       const w = cl.w[0] + rand() * (cl.w[1] - cl.w[0]);
@@ -250,31 +244,136 @@ export function buildCity(track: Track, opts: CityOpts) {
       if (dist < clearance) continue;
       if (cl.h[0] > 100 && dist < opts.towerDist) continue;
       const h = cl.h[0] + rand() * (cl.h[1] - cl.h[0]);
-      pos.set(x, 0, z);
-      q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, rand() < 0.5 ? 0 : Math.PI / 2);
-      sc.set(w, h, d);
+      const rot = rand() < 0.5 ? 0 : Math.PI / 2;
+      const ci = Math.floor(rand() * CITY_PALETTE.length);
+      plots.push({ x, z, w, d, h, rot, ci, top: rand() < 0.45 });
+    }
+    return { cl, canvas, plots };
+  });
+}
+type CityLayout = ReturnType<typeof layoutCity>;
+
+/** Plain box city: shown while the building pack loads, and kept if it fails to. */
+function proceduralCity(layout: CityLayout) {
+  const group = new THREE.Group();
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const sc = new THREE.Vector3();
+  const pos = new THREE.Vector3();
+  const tops: Plot[] = [];
+  for (const { canvas, plots } of layout) {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    const geo = new THREE.BoxGeometry(1, 1, 1);
+    geo.translate(0, 0.5, 0);
+    const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ map: tex }), plots.length);
+    plots.forEach((p, n) => {
+      pos.set(p.x, 0, p.z);
+      q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, p.rot);
+      sc.set(p.w, p.h, p.d);
       m.compose(pos, q, sc);
       mesh.setMatrixAt(n, m);
-      const c = palette[Math.floor(rand() * palette.length)];
-      mesh.setColorAt(n, c);
-      if (rand() < 0.45) tops.push({ x, z, y: h, w, d, c });
-      n++;
-    }
-    mesh.count = n;
+      mesh.setColorAt(n, CITY_PALETTE[p.ci]);
+      if (p.top) tops.push(p);
+    });
     group.add(mesh);
   }
-
   // neon rooftop rims
   const rims = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ toneMapped: false }), tops.length);
   tops.forEach((t, i) => {
-    pos.set(t.x, t.y + 0.4, t.z);
+    pos.set(t.x, t.h + 0.4, t.z);
     q.identity();
     sc.set(t.w + 0.6, 0.8, t.d + 0.6);
     m.compose(pos, q, sc);
     rims.setMatrixAt(i, m);
-    rims.setColorAt(i, t.c.clone().multiplyScalar(2.2));
+    rims.setColorAt(i, CITY_PALETTE[t.ci].clone().multiplyScalar(2.2));
   });
   group.add(rims);
+  return group;
+}
+
+/**
+ * The same layout built from the Sci-fi Buildings Pack: each plot gets a variant of its height class, scaled to the
+ * plot's footprint and height (so the road clearance still holds), tinted by the plot's neon colour.
+ */
+function kitCity(layout: CityLayout, kit: BuildingKit, seed: number) {
+  const group = new THREE.Group();
+  const pick = rng(seed ^ 0x5bd1e995);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const sc = new THREE.Vector3();
+  const pos = new THREE.Vector3();
+  const col = new THREE.Color();
+  // dark tint: mostly navy with a wash of the neon colour (windows / trim re-saturate it in the shader)
+  const navy = new THREE.Color(0x0b0a1c);
+
+  layout.forEach(({ plots }, cls) => {
+    const variants = kit.byClass[cls];
+    if (!variants.length) return;
+    const bucket = new Map<Variant, { p: Plot; v: Variant }[]>();
+    for (const p of plots) {
+      const v = variants[Math.floor(pick() * variants.length)];
+      let l = bucket.get(v);
+      if (!l) bucket.set(v, (l = []));
+      l.push({ p, v });
+    }
+    for (const [v, list] of bucket) {
+      const base = new THREE.InstancedMesh(v.baseGeo, v.baseMat, list.length);
+      const win = v.winGeo && v.winMat ? new THREE.InstancedMesh(v.winGeo, v.winMat, list.length) : null;
+      list.forEach(({ p }, n) => {
+        // footprint follows the plot (clamped so the facade proportions stay believable), height follows the plot
+        const sy = p.h / v.size.y;
+        const sx = Math.min(THREE.MathUtils.clamp(p.w / v.size.x, sy * 0.6, sy * 1.6), (p.w * 1.1) / v.size.x);
+        const sz = Math.min(THREE.MathUtils.clamp(p.d / v.size.z, sy * 0.6, sy * 1.6), (p.d * 1.1) / v.size.z);
+        pos.set(p.x, 0, p.z);
+        q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, p.rot);
+        sc.set(sx, sy, sz);
+        m.compose(pos, q, sc);
+        base.setMatrixAt(n, m);
+        win?.setMatrixAt(n, m);
+        col.copy(CITY_PALETTE[p.ci]);
+        win?.setColorAt(n, col);
+        base.setColorAt(n, col.clone().multiplyScalar(0.3).lerp(navy, 0.6));
+      });
+      group.add(base);
+      if (win) group.add(win);
+    }
+  });
+  return group;
+}
+
+/** Free the procedural city's own geometry, textures and instance buffers. */
+function disposeTree(o: THREE.Object3D) {
+  o.traverse((c) => {
+    const mesh = c as THREE.InstancedMesh;
+    if (!mesh.isMesh) return;
+    mesh.dispose();
+    mesh.geometry.dispose();
+    const mat = mesh.material as THREE.MeshBasicMaterial;
+    mat.map?.dispose();
+    mat.dispose();
+  });
+}
+
+/**
+ * City around a track. Starts as the procedural box city and swaps to the building pack once its glTF has loaded
+ * (or stays procedural if it can't be).
+ */
+export function buildCity(track: Track, opts: CityOpts) {
+  const group = new THREE.Group();
+  const layout = layoutCity(track, opts);
+  const procedural = proceduralCity(layout);
+  group.add(procedural);
+  const swap = (kit: BuildingKit | null) => {
+    if (!kit) return;
+    group.add(kitCity(layout, kit, opts.seed));
+    group.remove(procedural);
+    disposeTree(procedural);
+  };
+  const ready = buildingKit();
+  if (ready) swap(ready);
+  else void loadBuildingKit().then(swap);
   return group;
 }
 

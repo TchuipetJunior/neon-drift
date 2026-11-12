@@ -52,7 +52,7 @@ export class GhostCar {
     if (this.model) this.scene.remove(this.root);
     const m = modelFor({ ...def, accent: 0x22f3ff, glow: 0x22f3ff });
     m.underglow.visible = false;
-    for (const f of m.flames) f.scale.set(1, 1, 0.8);
+    for (const f of m.flames) f.visible = false; // the sprite flames would turn into flat ghost rectangles
     m.root.rotation.order = 'YXZ';
     m.root.visible = false;
     this.model = m;

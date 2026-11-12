@@ -1,0 +1,11 @@
+Model Information:
+* title:	Car Garage | Desert Garage Environment
+* source:	https://sketchfab.com/3d-models/car-garage-desert-garage-environment-ef8bb81713814d688487a81ae2467a51
+* author:	DevPoly3D (https://sketchfab.com/DevPoly3D)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Car Garage | Desert Garage Environment" (https://sketchfab.com/3d-models/car-garage-desert-garage-environment-ef8bb81713814d688487a81ae2467a51) by DevPoly3D (https://sketchfab.com/DevPoly3D) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

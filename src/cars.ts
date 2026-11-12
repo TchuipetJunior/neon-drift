@@ -1,3 +1,5 @@
+import { CYBERTRUCK_CREDIT } from './credits';
+
 /** Driving characteristics. Rival AI always uses the default spec. */
 export interface CarSpec {
   maxV: number;      // top speed (u/s)
@@ -49,6 +51,7 @@ export const CARS: CarDef[] = [
     name: 'TESLA CYBERTRUCK',
     blurb: 'Faceted stainless hover-truck. Higher top speed and shoves rivals aside, but slower to spool up and heavier in the turns.',
     body: 'truck',
+    credit: CYBERTRUCK_CREDIT,
     paint: 0xc3c7cd,
     accent: 0xdfe8ff,
     glow: 0x8fb8ff,

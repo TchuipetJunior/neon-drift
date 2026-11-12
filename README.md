@@ -53,8 +53,11 @@ Issues and pull requests are welcome. Before opening a PR, run `npm run typechec
 
 ## Credits
 
-The Mercedes Vision AVTR model is not mine:
+3D models (all from Sketchfab, bundled with their `license.txt` in `public/models/`):
 
-This work is based on "2020 | Mercedes AVTR Concept | Thanks 100k wiew" (https://sketchfab.com/3d-models/2020-mercedes-avtr-concept-thanks-100k-wiew-690b13f974254b16a1c8ea8d6b92275b) by kevin (ケビン) (https://sketchfab.com/sohyalebret) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- This work is based on "2020 | Mercedes AVTR Concept | Thanks 100k wiew" (https://sketchfab.com/3d-models/2020-mercedes-avtr-concept-thanks-100k-wiew-690b13f974254b16a1c8ea8d6b92275b) by kevin (ケビン) (https://sketchfab.com/sohyalebret) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- This work is based on "Fortnite: Cybertruck" (https://sketchfab.com/3d-models/fortnite-cybertruck-47d11b3a7c0848d3b0c43fc085a5438d) by fred346b (https://sketchfab.com/fred346b) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- This work is based on "Sci-fi Buildings Pack (low-poly, game ready)" (https://sketchfab.com/3d-models/sci-fi-buildings-pack-low-poly-game-ready-333a430644b34e688aecfdc874f4cbf2) by TampaJoey (https://sketchfab.com/TampaJoey) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- This work is based on "Car Garage | Desert Garage Environment" (https://sketchfab.com/3d-models/car-garage-desert-garage-environment-ef8bb81713814d688487a81ae2467a51) by DevPoly3D (https://sketchfab.com/DevPoly3D) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/) — **non-commercial use only**.
 
-The model (with its `license.txt`) lives in `public/models/`. Its rear scale pods are baked into the mesh, so the game overlays animated lids and red emitters on them.
+The AVTR's rear scale pods and the Cybertruck's wheels are baked into their meshes, so the game overlays animated lids / splits the wheels at load. All models are restyled (tints, neon emissives) to match the game.

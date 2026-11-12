@@ -13,7 +13,7 @@ import { Hud, fmt, ordinal } from './hud';
 import { AudioFx } from './audio';
 import { carById } from './cars';
 import { GhostCar, loadBest, saveBest, type GhostData } from './ghost';
-import { Particles, Trail } from './fx';
+import { Particles } from './fx';
 import { drive } from './ai';
 import { Menu, loadSettings, saveSettings } from './menu';
 import { Garage } from './garage';
@@ -50,7 +50,7 @@ scene.add(carLight);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.75, 0.5, 0.72));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.5, 0.8));
 composer.addPass(new OutputPass());
 
 addEventListener('resize', () => {
@@ -65,7 +65,7 @@ interface Racer {
   name: string;
   css: string;
   car: Car;
-  trails: Trail[];
+  trails: { mesh: THREE.Object3D; reset(): void }[];
   isPlayer: boolean;
   skill: number;
   lane: number;
@@ -98,11 +98,9 @@ function makeRacer(name: string, accent: number, glow: number, isPlayer: boolean
     const base = carById(body);
     car.setBody({ ...base, glow, accent: base.body === 'avtr' ? base.accent : accent });
   }
-  const tc = new THREE.Color(glow).multiplyScalar(isPlayer ? 1.6 : 1.1);
-  const n = isPlayer ? 40 : 26;
   return {
     name, css: `#${new THREE.Color(accent).getHexString()}`, car, isPlayer, skill, lane, seeksPads,
-    trails: [new Trail(scene, tc, n, 0.11), new Trail(scene, tc, n, 0.11)],
+    trails: [], // ground light ribbons removed
     lap: 1, passedHalf: false, prevIdx: 0, finishTime: null, outLap: false, boostCd: 0,
   };
 }
@@ -120,7 +118,6 @@ function applyPlayerCar() {
   car.setDef(d);
   ghost.setCar(d);
   player.css = `#${new THREE.Color(d.accent).getHexString()}`;
-  player.trails.forEach((t) => t.color.set(d.glow).multiplyScalar(1.6));
   carLight.color.set(d.glow);
 }
 let field: Racer[] = racers;
@@ -729,12 +726,10 @@ function updateEffects(r: Racer) {
   right.set(-Math.cos(h), 0, Math.sin(h));
   fwd.set(Math.sin(h), 0, Math.cos(h));
   const root = c.model.root;
-  const intensity = THREE.MathUtils.clamp((c.speed - 8) / 50, 0, 1) * (0.7 + c.boost * 0.8);
 
   c.model.thrusterLocal.forEach((local, i) => {
     tmp.copy(local);
     root.localToWorld(tmp);
-    r.trails[i].push(tmp, right, intensity);
     if (c.boost > 0.25 && (r.isPlayer || Math.random() < 0.4)) {
       particles.spawn(tmp, -fwd.x * 25 + (Math.random() - 0.5) * 4, Math.random() * 2, -fwd.z * 25 + (Math.random() - 0.5) * 4, TIER_COLORS[1], 0.35);
     }
